@@ -1,11 +1,15 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 # ----------------------------
 # Configurazione pagina
 # ----------------------------
-PAGE_TITLE = "Dashboard personale - Partecipanti alla mia sessione del Festival dell'Innovazione Agroalimentare"
+PAGE_TITLE = (
+    "Dashboard personale - Partecipanti alla mia sessione "
+    "del Festival dell'Innovazione Agroalimentare"
+)
 
 st.set_page_config(
     page_title=PAGE_TITLE,
@@ -14,7 +18,8 @@ st.set_page_config(
 
 st.title(PAGE_TITLE)
 st.write(
-    "Carica un file Excel con i dati dei partecipanti per visualizzare grafici e una tabella filtrabile."
+    "Carica un file Excel con i dati dei partecipanti per "
+    "visualizzare grafici e una tabella filtrabile."
 )
 
 # ----------------------------
@@ -31,18 +36,54 @@ ALL_PROFILING_CATEGORIES = [
     "Settore produttivo",
 ]
 
+# Colonna che NON deve avere grafico
+ORGANIZATION_COLUMN = "Organizzazione presso cui lavori o studi"
+
 # Categorie per cui vogliamo disegnare un grafico
 CATEGORIES_WITH_CHARTS = [
-    c
-    for c in ALL_PROFILING_CATEGORIES
-    if c != "Organizzazione presso cui lavori o studi"
+    c for c in ALL_PROFILING_CATEGORIES if c != ORGANIZATION_COLUMN
 ]
-
-# Colonna che non vogliamo mostrare come grafico
-ORGANIZATION_COLUMN = "Organizzazione presso cui lavori o studi"
 
 # Palette colori del brand
 BRAND_COLORS = ["#73b27d", "#f1ad72", "#d31048"]
+
+
+def get_colors_for_bars(num_bars: int, chart_index: int, values=None):
+    """
+    Restituisce una lista di colori per le barre:
+    - se num_bars <= 3: usa i 3 colori brand alternati
+    - se num_bars > 3: usa un solo colore brand con gradiente di alpha
+      (più trasparente per i valori più piccoli).
+    chart_index serve per scegliere il colore base a rotazione tra i 3.
+    """
+    if num_bars <= 3:
+        return [BRAND_COLORS[i % len(BRAND_COLORS)] for i in range(num_bars)]
+
+    # Scegli un colore base a rotazione
+    base_hex = BRAND_COLORS[chart_index % len(BRAND_COLORS)]
+    base_rgba = mcolors.to_rgba(base_hex)
+
+    # Calcolo alpha in base ai valori (più grande = meno trasparente)
+    if values is None or len(values) != num_bars:
+        alphas = [1.0 for _ in range(num_bars)]
+    else:
+        vals = pd.Series(values, dtype=float)
+        v_min = vals.min()
+        v_max = vals.max()
+        if v_max == v_min:
+            alphas = [1.0 for _ in range(num_bars)]
+        else:
+            # Normalizziamo tra 0 e 1
+            norm = (vals - v_min) / (v_max - v_min)
+            # Alpha tra 0.3 e 1.0
+            alphas = 0.3 + 0.7 * norm
+
+    colors = [
+        (base_rgba[0], base_rgba[1], base_rgba[2], float(a))
+        for a in alphas
+    ]
+    return colors
+
 
 # ----------------------------
 # Upload file
@@ -63,7 +104,7 @@ if uploaded_file is not None:
         # ----------------------------
         st.subheader("Analisi grafica dei partecipanti")
 
-        for category in CATEGORIES_WITH_CHARTS:
+        for idx, category in enumerate(CATEGORIES_WITH_CHARTS):
             if category not in df_uploaded.columns:
                 st.warning(
                     f"La colonna '{category}' non è presente nel file caricato."
@@ -74,29 +115,36 @@ if uploaded_file is not None:
 
             # Conteggi e percentuali (ignoriamo i NaN)
             value_counts = df_uploaded[category].value_counts(dropna=True)
+
             if value_counts.empty:
                 st.info(
-                    f"Nessun dato disponibile per '{category}' dopo aver rimosso i valori mancanti."
+                    f"Nessun dato disponibile per '{category}' "
+                    "dopo aver rimosso i valori mancanti."
                 )
                 continue
+
+            # Ordiniamo per numero decrescente per dare senso al gradiente
+            value_counts = value_counts.sort_values(ascending=False)
 
             total = value_counts.sum()
             percentages = (value_counts / total * 100).round(1)
 
-            # DataFrame per facilitare la gestione
+            # DataFrame di distribuzione
             dist_df = pd.DataFrame({
                 category: value_counts.index.astype(str),
                 "Numero": value_counts.values,
                 "Percentuale": percentages.values,
             })
 
-            # Grafico a barre con brand colors e percentuali in etichetta
-            fig, ax = plt.subplots(figsize=(10, 6))
+            num_bars = len(dist_df)
+            colors = get_colors_for_bars(
+                num_bars=num_bars,
+                chart_index=idx,
+                values=dist_df["Numero"].values,
+            )
 
-            colors = [
-                BRAND_COLORS[i % len(BRAND_COLORS)]
-                for i in range(len(dist_df))
-            ]
+            # Grafico a barre
+            fig, ax = plt.subplots(figsize=(10, 6))
 
             bars = ax.bar(dist_df[category], dist_df["Numero"], color=colors)
 
@@ -105,7 +153,7 @@ if uploaded_file is not None:
             ax.set_ylabel("Numero di partecipanti")
             plt.xticks(rotation=45, ha="right")
 
-            # Etichette con la % sopra ogni barra
+            # Etichette con % sopra ogni barra
             for bar, pct in zip(bars, dist_df["Percentuale"]):
                 height = bar.get_height()
                 ax.text(
@@ -121,7 +169,7 @@ if uploaded_file is not None:
             st.pyplot(fig)
             plt.close(fig)
 
-            # Tabellina riassuntiva per la singola categoria
+            # Tabellina riassuntiva per categoria
             with st.expander(f"Dettaglio valori per '{category}'"):
                 st.dataframe(
                     dist_df.set_index(category),
@@ -133,7 +181,8 @@ if uploaded_file is not None:
             st.info(
                 "La colonna "
                 f"'{ORGANIZATION_COLUMN}' "
-                "non viene visualizzata come grafico perché contiene troppi valori diversi. "
+                "non viene visualizzata come grafico perché contiene "
+                "troppi valori diversi. "
                 "Puoi comunque analizzarla nella tabella completa qui sotto."
             )
 
@@ -162,7 +211,10 @@ if uploaded_file is not None:
                         (float(min_val), float(max_val)),
                     )
                     df_filtered = df_filtered[
-                        df_filtered[col].between(range_values[0], range_values[1])
+                        df_filtered[col].between(
+                            range_values[0],
+                            range_values[1]
+                        )
                     ]
 
                 # Colonne testuali/categoriche: multiselect
@@ -191,7 +243,8 @@ if uploaded_file is not None:
 
     except Exception as e:
         st.error(
-            f"Errore nella lettura del file: {e}. Assicurati che sia un file Excel valido."
+            f"Errore nella lettura del file: {e}. "
+            "Assicurati che sia un file Excel valido."
         )
 else:
     st.info("Carica un file Excel per procedere con l'analisi.")
