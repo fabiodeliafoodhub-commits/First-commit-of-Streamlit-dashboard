@@ -233,18 +233,39 @@ if uploaded_file is not None:
                         ]
 
         # Nascondi automaticamente le colonne di FILTER_COLUMNS che,
-        # dopo l'applicazione dei filtri, sono completamente vuote (tutti NaN/None)
+        # dopo l'applicazione dei filtri, sono completamente "vuote"
+        # (NaN, None, stringhe vuote, spazi, "None", "nan", ecc.)
         cols_to_hide = []
         for col in FILTER_COLUMNS:
             if col in df_filtered.columns:
-                # Se tutti i valori sono NaN/None → da nascondere
-                if df_filtered[col].notna().sum() == 0:
+                col_series = df_filtered[col]
+
+                # Normalizzo i valori "finti vuoti" in NaN
+                col_norm = (
+                    col_series
+                    .replace(
+                        [
+                            "",
+                            " ",
+                            "  ",
+                            "None",
+                            "none",
+                            "NaN",
+                            "nan",
+                        ],
+                        pd.NA,
+                    )
+                )
+
+                # Se TUTTI i valori sono NaN dopo la normalizzazione → colonna da nascondere
+                if col_norm.isna().all():
                     cols_to_hide.append(col)
 
         if cols_to_hide:
             df_to_show = df_filtered.drop(columns=cols_to_hide)
         else:
             df_to_show = df_filtered
+
 
         st.dataframe(
             df_to_show,
