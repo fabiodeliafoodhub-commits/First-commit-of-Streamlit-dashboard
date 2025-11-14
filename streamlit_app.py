@@ -2,72 +2,142 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# Define the profiling categories to be analyzed
-profiling_categories_to_analyze = [
-    'Occupazione',
-    'Tipologia di organizzazione presso cui lavori',
-    'Organizzazione presso cui lavori o studi',
-    'Seniority',
-    'Area aziendale',
-    'Settore produttivo'
+# ----------------------------
+# Configurazione pagina
+# ----------------------------
+PAGE_TITLE = "Dashboard personale - Partecipanti alla mia sessione del Festival dell'Innovazione Agroalimentare"
+
+st.set_page_config(
+    page_title=PAGE_TITLE,
+    layout="wide"
+)
+
+st.title(PAGE_TITLE)
+st.write(
+    "Carica un file Excel con i dati dei partecipanti per visualizzare grafici e una tabella filtrabile."
+)
+
+# ----------------------------
+# Impostazioni analisi
+# ----------------------------
+
+# Tutte le categorie di profiling presenti nel questionario
+ALL_PROFILING_CATEGORIES = [
+    "Occupazione",
+    "Tipologia di organizzazione presso cui lavori",
+    "Organizzazione presso cui lavori o studi",
+    "Seniority",
+    "Area aziendale",
+    "Settore produttivo",
 ]
 
-# Set up the Streamlit page configuration
-st.set_page_config(page_title="Participant Profiling Dashboard", layout="wide")
+# Categorie per cui vogliamo disegnare un grafico
+CATEGORIES_WITH_CHARTS = [
+    c
+    for c in ALL_PROFILING_CATEGORIES
+    if c != "Organizzazione presso cui lavori o studi"
+]
 
-st.title("Participant Profiling Dashboard")
-st.write("Upload an Excel file to analyze participant profiling data.")
+# Colonna che non vogliamo mostrare come grafico
+ORGANIZATION_COLUMN = "Organizzazione presso cui lavori o studi"
 
-# File uploader widget
-uploaded_file = st.file_uploader("Choose an Excel file", type=["xlsx", "xls"])
+# Palette colori del brand
+BRAND_COLORS = ["#73b27d", "#f1ad72", "#d31048"]
+
+# ----------------------------
+# Upload file
+# ----------------------------
+uploaded_file = st.file_uploader(
+    "Scegli un file Excel (.xlsx o .xls)",
+    type=["xlsx", "xls"]
+)
 
 if uploaded_file is not None:
     try:
-        # Read the Excel file into a pandas DataFrame
         df_uploaded = pd.read_excel(uploaded_file)
-        st.success("File successfully loaded!")
-        st.subheader("First 5 rows of the uploaded data:")
-        st.dataframe(df_uploaded.head())
 
-        st.subheader("\nProfiling Category Analysis:")
+        st.success("File caricato correttamente!")
 
-        # For each profiling category, generate and display visualizations
-        for category in profiling_categories_to_analyze:
-            if category in df_uploaded.columns:
-                st.markdown(f"### {category}")
-                # Calculate value counts, dropping NaN values for cleaner output
-                value_counts = df_uploaded[category].value_counts(dropna=True)
+        # ----------------------------
+        # Grafici per le categorie di profiling
+        # ----------------------------
+        st.subheader("Analisi grafica dei partecipanti")
 
-                if not value_counts.empty:
-                    # Create a bar chart using matplotlib and display with st.pyplot
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    value_counts.plot(kind='bar', ax=ax, color='skyblue')
-                    ax.set_title(f'Distribution of {category}')
-                    ax.set_xlabel(category)
-                    ax.set_ylabel('Number of Participants')
-                    plt.xticks(rotation=45, ha='right')
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    # Close the figure to free memory
-                    plt.close(fig)
-                else:
-                    st.info(
-                        f"No data available for '{category}' after dropping NaN values."
-                    )
-            else:
+        for category in CATEGORIES_WITH_CHARTS:
+            if category not in df_uploaded.columns:
                 st.warning(
-                    f"The column '{category}' is not present in the uploaded file."
+                    f"La colonna '{category}' non è presente nel file caricato."
+                )
+                continue
+
+            st.markdown(f"### {category}")
+
+            # Conteggi e percentuali (ignoriamo i NaN)
+            value_counts = df_uploaded[category].value_counts(dropna=True)
+            if value_counts.empty:
+                st.info(
+                    f"Nessun dato disponibile per '{category}' dopo aver rimosso i valori mancanti."
+                )
+                continue
+
+            total = value_counts.sum()
+            percentages = (value_counts / total * 100).round(1)
+
+            # DataFrame per facilitare la gestione
+            dist_df = pd.DataFrame({
+                category: value_counts.index.astype(str),
+                "Numero": value_counts.values,
+                "Percentuale": percentages.values,
+            })
+
+            # Grafico a barre con brand colors e percentuali in etichetta
+            fig, ax = plt.subplots(figsize=(10, 6))
+
+            colors = [
+                BRAND_COLORS[i % len(BRAND_COLORS)]
+                for i in range(len(dist_df))
+            ]
+
+            bars = ax.bar(dist_df[category], dist_df["Numero"], color=colors)
+
+            ax.set_title(f"Distribuzione di {category}")
+            ax.set_xlabel(category)
+            ax.set_ylabel("Numero di partecipanti")
+            plt.xticks(rotation=45, ha="right")
+
+            # Etichette con la % sopra ogni barra
+            for bar, pct in zip(bars, dist_df["Percentuale"]):
+                height = bar.get_height()
+                ax.text(
+                    bar.get_x() + bar.get_width() / 2,
+                    height,
+                    f"{pct:.1f}%",
+                    ha="center",
+                    va="bottom",
+                    fontsize=9,
                 )
 
-    except Exception as e:
-        st.error(
-            f"Error reading file: {e}. Please ensure it is a valid Excel file."
-        )
-else:
-    st.info("Please upload an Excel file to proceed with the analysis.")
+            plt.tight_layout()
+            st.pyplot(fig)
+            plt.close(fig)
 
-# Note:
-# The code above implements a Streamlit dashboard for analyzing participant profiling data from Excel files.
-# To run this application locally, open a terminal and execute:
-#   streamlit run streamlit_app.py
-# This will start a local web server and provide a URL (e.g., http://localhost:8501) where you can interact with the dashboard.
+            # Tabellina riassuntiva per la singola categoria
+            with st.expander(f"Dettaglio valori per '{category}'"):
+                st.dataframe(
+                    dist_df.set_index(category),
+                    use_container_width=True,
+                )
+
+        # Nota sulla colonna Organizzazione
+        if ORGANIZATION_COLUMN in df_uploaded.columns:
+            st.info(
+                "La colonna "
+                f"'{ORGANIZATION_COLUMN}' "
+                "non viene visualizzata come grafico perché contiene troppi valori diversi. "
+                "Puoi comunque analizzarla nella tabella completa qui sotto."
+            )
+
+        # ----------------------------
+        # Tabella completa con filtri
+        # ----------------------------
+        st.subheader
