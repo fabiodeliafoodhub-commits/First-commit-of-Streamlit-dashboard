@@ -140,4 +140,58 @@ if uploaded_file is not None:
         # ----------------------------
         # Tabella completa con filtri
         # ----------------------------
-        st.subheader
+        st.subheader("Tabella completa con filtri")
+
+        df_filtered = df_uploaded.copy()
+
+        with st.expander("Imposta filtri per le colonne"):
+            for col in df_uploaded.columns:
+                col_data = df_uploaded[col]
+
+                # Colonne numeriche: filtro per intervallo
+                if pd.api.types.is_numeric_dtype(col_data):
+                    min_val = col_data.min()
+                    max_val = col_data.max()
+                    if pd.isna(min_val) or pd.isna(max_val):
+                        continue
+
+                    range_values = st.slider(
+                        f"Intervallo per '{col}'",
+                        float(min_val),
+                        float(max_val),
+                        (float(min_val), float(max_val)),
+                    )
+                    df_filtered = df_filtered[
+                        df_filtered[col].between(range_values[0], range_values[1])
+                    ]
+
+                # Colonne testuali/categoriche: multiselect
+                else:
+                    unique_vals = sorted(
+                        col_data.dropna().astype(str).unique().tolist()
+                    )
+                    if not unique_vals:
+                        continue
+
+                    selected_vals = st.multiselect(
+                        f"Valori per '{col}'",
+                        options=unique_vals,
+                        default=unique_vals,
+                    )
+                    if selected_vals:
+                        df_filtered = df_filtered[
+                            df_filtered[col].astype(str).isin(selected_vals)
+                        ]
+
+        # Tabella completa (tutte le righe dopo i filtri)
+        st.dataframe(
+            df_filtered,
+            use_container_width=True,
+        )
+
+    except Exception as e:
+        st.error(
+            f"Errore nella lettura del file: {e}. Assicurati che sia un file Excel valido."
+        )
+else:
+    st.info("Carica un file Excel per procedere con l'analisi.")
