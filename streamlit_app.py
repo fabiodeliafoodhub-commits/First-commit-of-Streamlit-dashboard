@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from collections import Counter
 from fpdf import FPDF
-from PIL import Image  # necessario per il logo
+from PIL import Image  # per il logo
 
 # ----------------------------
 # Configurazione pagina
@@ -29,7 +29,7 @@ col_logo, col_title = st.columns([1, 5])
 
 with col_logo:
     st.image(
-        "assets/logo_foodhub.png",   # percorso corretto
+        "assets/logo_foodhub.png",
         width=120
     )
 
@@ -78,7 +78,7 @@ FILTER_COLUMNS = [
 BRAND_COLORS = ["#73b27d", "#f1ad72", "#d31048"]
 
 
-def get_colors_for_bars(num_bars: int, chart_index: int, values=None):
+def get_colors_for_bars(num_bars, chart_index, values=None):
     """
     - se num_bars <= 3: usa i 3 colori brand alternati
     - se num_bars > 3: usa un solo colore brand con gradiente di alpha
@@ -119,16 +119,9 @@ def find_column_case_insensitive(df: pd.DataFrame, target_name: str):
 def normalize_role(role: str) -> str:
     """
     Normalizza job title simili in etichette più aggregate.
-    Esempi:
-    - R&D, ricerca, research -> 'Ricerca e Sviluppo (R&D)'
-    - quality, qualità -> 'Qualità / Quality Assurance'
-    - marketing -> 'Marketing'
-    - innovation / innovazione -> 'Innovazione'
-    ecc.
     """
     r = role.strip().lower()
 
-    # pattern di normalizzazione (molto semplice ma efficace)
     if any(k in r for k in ["r&d", "ricerca", "research", "sviluppo prodotto", "product development"]):
         return "Ricerca e Sviluppo (R&D)"
     if any(k in r for k in ["quality", "qualità", "controllo qualità", "qa"]):
@@ -148,14 +141,13 @@ def normalize_role(role: str) -> str:
     if any(k in r for k in ["ricercatore", "professore", "phd", "ricerca accademica"]):
         return "Ricerca Accademica"
 
-    # fallback: capitalizza in modo decente
     return r.title()
 
 
 def generate_pdf_report(df: pd.DataFrame,
                         kpis: dict,
-                        top_roles: list | None = None,
-                        top_sectors: list | None = None) -> bytes:
+                        top_roles=None,
+                        top_sectors=None) -> bytes:
     """
     Crea un PDF semplice con:
     - titolo
@@ -168,19 +160,16 @@ def generate_pdf_report(df: pd.DataFrame,
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
 
-    # Titolo
     pdf.set_font("Arial", "B", 16)
     pdf.cell(0, 10, "Report partecipanti - Festival dell'Innovazione Agroalimentare", ln=True)
     pdf.ln(5)
 
-    # KPI
     pdf.set_font("Arial", "B", 13)
     pdf.cell(0, 8, "KPI principali", ln=True)
     pdf.set_font("Arial", "", 11)
     for label, value in kpis.items():
         pdf.cell(0, 7, f"- {label}: {value}", ln=True)
 
-    # Top ruoli
     if top_roles:
         pdf.ln(5)
         pdf.set_font("Arial", "B", 13)
@@ -190,7 +179,6 @@ def generate_pdf_report(df: pd.DataFrame,
             line = f"- {role}: {count} partecipanti"
             pdf.cell(0, 7, line[:120], ln=True)
 
-    # Top settori
     if top_sectors:
         pdf.ln(5)
         pdf.set_font("Arial", "B", 13)
@@ -200,23 +188,155 @@ def generate_pdf_report(df: pd.DataFrame,
             line = f"- {sector}: {count} partecipanti"
             pdf.cell(0, 7, line[:120], ln=True)
 
-    # Output come bytes / bytearray (fpdf2)
     pdf_raw = pdf.output(dest="S")
 
-    # fpdf2 può restituire str, bytes o bytearray a seconda della versione
     if isinstance(pdf_raw, str):
         pdf_bytes = pdf_raw.encode("latin-1", "ignore")
     else:
-        # bytearray → lo converto in bytes
         pdf_bytes = bytes(pdf_raw)
 
     return pdf_bytes
 
 
+def plot_category_distribution(df, category, idx):
+    """Funzione riutilizzabile per i grafici delle categorie."""
+    if category not in df.columns:
+        st.warning(f"La colonna '{category}' non è presente nel file caricato.")
+        return
+
+    value_counts = df[category].value_counts(dropna=True)
+    if value_counts.empty:
+        st.info(
+            f"Nessun dato disponibile per '{category}' "
+            "dopo aver rimosso i valori mancanti."
+        )
+        return
+
+    value_counts = value_counts.sort_values(ascending=False)
+    total = value_counts.sum()
+    percentages = (value_counts / total * 100).round(1)
+
+    dist_df = pd.DataFrame({
+        category: value_counts.index.astype(str),
+        "Numero": value_counts.values,
+        "Percentuale": percentages.values,
+    })
+
+    num_bars = len(dist_df)
+    colors = get_colors_for_bars(
+        num_bars=num_bars,
+        chart_index=idx,
+        values=dist_df["Numero"].values,
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bars = ax.bar(dist_df[category], dist_df["Numero"], color=colors)
+
+    ax.set_title(f"Distribuzione di {category}")
+    ax.set_xlabel(category)
+    ax.set_ylabel("Numero di partecipanti")
+    plt.xticks(rotation=45, ha="right")
+
+    for bar, pct in zip(bars, dist_df["Percentuale"]):
+        height = bar.get_height()
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            height,
+            f"{pct:.1f}%",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+        )
+
+    plt.tight_layout()
+    st.pyplot(fig)
+    plt.close(fig)
+
+    with st.expander(f"Dettaglio valori per '{category}'"):
+        st.dataframe(
+            dist_df.set_index(category),
+            use_container_width=True,
+        )
+
+
+def build_executive_summary(df, kpis_for_pdf, roles_for_analysis_norm, sectors_col, occup_col, org_type_col, seniority_col):
+    """Genera un riassunto testuale 'executive summary' basato sui dati."""
+    total = len(df)
+    if total == 0:
+        return "Non ci sono partecipanti registrati per questa sessione."
+
+    lines = []
+
+    # Partecipanti totali
+    lines.append(
+        f"La sessione ha coinvolto **{total} partecipanti**."
+    )
+
+    # Tipologia organizzazione
+    if org_type_col in df.columns:
+        vc_org = df[org_type_col].value_counts(dropna=True)
+        if not vc_org.empty:
+            main_org = vc_org.index[0]
+            pct_org = vc_org.iloc[0] / total * 100
+            lines.append(
+                f"La tipologia di organizzazione più rappresentata è **{main_org}** "
+                f"({pct_org:.1f}% dei partecipanti)."
+            )
+
+    # Settore produttivo
+    if sectors_col in df.columns:
+        vc_sec = df[sectors_col].value_counts(dropna=True)
+        if not vc_sec.empty:
+            main_sec = vc_sec.index[0]
+            pct_sec = vc_sec.iloc[0] / total * 100
+            lines.append(
+                f"Il settore produttivo prevalente è **{main_sec}**, "
+                f"che pesa per circa il **{pct_sec:.1f}%** del totale."
+            )
+
+    # Seniority
+    if seniority_col in df.columns:
+        vc_sen = df[seniority_col].value_counts(dropna=True)
+        if not vc_sen.empty:
+            top_sen = vc_sen.index[0]
+            pct_sen = vc_sen.iloc[0] / total * 100
+            lines.append(
+                f"La **seniority più diffusa** è **{top_sen}** "
+                f"({pct_sen:.1f}% dei partecipanti)."
+            )
+
+    # Studenti vs professionisti
+    if occup_col in df.columns:
+        vc_occ = df[occup_col].astype(str).str.lower().value_counts(dropna=True)
+        num_studio = vc_occ.get("studio", 0)
+        pct_studio = num_studio / total * 100
+        if num_studio > 0:
+            lines.append(
+                f"Gli studenti (categoria 'Studio') rappresentano circa **{pct_studio:.1f}%** del pubblico."
+            )
+        else:
+            lines.append(
+                "Non risultano partecipanti classificati nella categoria **'Studio'**, "
+                "il pubblico è quindi fortemente professionale."
+            )
+
+    # Ruoli aggregati (R&D, Qualità, ecc.)
+    if roles_for_analysis_norm:
+        role_counts = Counter(roles_for_analysis_norm)
+        top_role, top_role_count = role_counts.most_common(1)[0]
+        pct_top_role = top_role_count / total * 100
+        lines.append(
+            f"A livello di profili professionali, il ruolo aggregato più frequente è "
+            f"**{top_role}** (circa {pct_top_role:.1f}% dei partecipanti)."
+        )
+
+    return "\n\n".join(lines)
+
 
 # ----------------------------
 # Upload file
 # ----------------------------
+
 uploaded_file = st.file_uploader(
     "Scegli un file Excel (.xlsx o .xls)",
     type=["xlsx", "xls"]
@@ -225,11 +345,10 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     try:
         df_uploaded = pd.read_excel(uploaded_file)
-
         st.success("File caricato correttamente!")
 
         # ----------------------------
-        # KPI principali
+        # KPI principali (calcolati una volta)
         # ----------------------------
         total_participants = len(df_uploaded)
 
@@ -249,7 +368,7 @@ if uploaded_file is not None:
         seniority_col = "Seniority"
         top_seniority_label = None
         top_seniority_pct = None
-        if seniority_col in df_uploaded.columns:
+        if seniority_col in df_uploaded.columns and total_participants > 0:
             counts_seniority = df_uploaded[seniority_col].value_counts(dropna=True)
             if not counts_seniority.empty:
                 top_seniority_label = counts_seniority.index[0]
@@ -258,25 +377,8 @@ if uploaded_file is not None:
         ruolo_col = find_column_case_insensitive(df_uploaded, "ruolo")
         num_unique_roles = None
         if ruolo_col is not None:
-            # ruoli totali (anche studenti) solo per KPI numerico
             roles_series_all = df_uploaded[ruolo_col].dropna().astype(str)
             num_unique_roles = int(roles_series_all.nunique()) if not roles_series_all.empty else 0
-
-        st.subheader("Panoramica partecipanti")
-
-        kpi_row1 = st.columns(3)
-        kpi_row1[0].metric("Totale partecipanti", total_participants)
-        if unique_orgs is not None:
-            kpi_row1[1].metric("Organizzazioni uniche", unique_orgs)
-        if unique_sectors is not None:
-            kpi_row1[2].metric("Settori produttivi unici", unique_sectors)
-
-        kpi_row2 = st.columns(2)
-        if top_seniority_label is not None:
-            val = f"{top_seniority_label} ({top_seniority_pct:.1f}%)"
-            kpi_row2[0].metric("Seniority più diffusa", val)
-        if num_unique_roles is not None:
-            kpi_row2[1].metric("Ruoli diversi dichiarati", num_unique_roles)
 
         kpis_for_pdf = {
             "Totale partecipanti": total_participants,
@@ -291,103 +393,17 @@ if uploaded_file is not None:
             ),
         }
 
-        # ----------------------------
-        # Grafici per le categorie di profiling
-        # ----------------------------
-        st.subheader("Analisi grafica dei partecipanti")
+        # Pre-elaborazione ruoli per executive summary e tab Ruoli
+        occup_col = "Occupazione"
+        org_type_col = "Tipologia di organizzazione presso cui lavori"
 
-        for idx, category in enumerate(CATEGORIES_WITH_CHARTS):
-            if category not in df_uploaded.columns:
-                st.warning(
-                    f"La colonna '{category}' non è presente nel file caricato."
-                )
-                continue
-
-            st.markdown(f"### {category}")
-
-            value_counts = df_uploaded[category].value_counts(dropna=True)
-
-            if value_counts.empty:
-                st.info(
-                    f"Nessun dato disponibile per '{category}' "
-                    "dopo aver rimosso i valori mancanti."
-                )
-                continue
-
-            value_counts = value_counts.sort_values(ascending=False)
-            total = value_counts.sum()
-            percentages = (value_counts / total * 100).round(1)
-
-            dist_df = pd.DataFrame({
-                category: value_counts.index.astype(str),
-                "Numero": value_counts.values,
-                "Percentuale": percentages.values,
-            })
-
-            num_bars = len(dist_df)
-            colors = get_colors_for_bars(
-                num_bars=num_bars,
-                chart_index=idx,
-                values=dist_df["Numero"].values,
-            )
-
-            fig, ax = plt.subplots(figsize=(10, 6))
-            bars = ax.bar(dist_df[category], dist_df["Numero"], color=colors)
-
-            ax.set_title(f"Distribuzione di {category}")
-            ax.set_xlabel(category)
-            ax.set_ylabel("Numero di partecipanti")
-            plt.xticks(rotation=45, ha="right")
-
-            for bar, pct in zip(bars, dist_df["Percentuale"]):
-                height = bar.get_height()
-                ax.text(
-                    bar.get_x() + bar.get_width() / 2,
-                    height,
-                    f"{pct:.1f}%",
-                    ha="center",
-                    va="bottom",
-                    fontsize=9,
-                )
-
-            plt.tight_layout()
-            st.pyplot(fig)
-            plt.close(fig)
-
-            with st.expander(f"Dettaglio valori per '{category}'"):
-                st.dataframe(
-                    dist_df.set_index(category),
-                    use_container_width=True,
-                )
-
-        if ORGANIZATION_COLUMN in df_uploaded.columns:
-            st.info(
-                "La colonna "
-                f"'{ORGANIZATION_COLUMN}' "
-                "non viene visualizzata come grafico perché contiene "
-                "troppi valori diversi. "
-                "Puoi comunque analizzarla nella tabella completa qui sotto."
-            )
-
-        # ----------------------------
-        # Analisi dei ruoli (escludendo occupazione = Studio)
-        # ----------------------------
-        st.subheader("Analisi dei ruoli professioanli dichiarati - aggregati")
-
+        roles_for_analysis_norm = []
         top_roles_for_pdf = None
-        if ruolo_col is None:
-            st.info(
-                "Nessuna colonna 'ruolo' trovata nel file (ricerca case-insensitive)."
-            )
-        else:
-            if "Occupazione" not in df_uploaded.columns:
-                st.info(
-                    "Non è possibile escludere gli studenti perché manca la colonna 'Occupazione'."
-                )
-                roles_for_analysis = df_uploaded[ruolo_col].dropna().astype(str)
-            else:
+
+        if ruolo_col is not None:
+            if occup_col in df_uploaded.columns:
                 mask_not_studio = (
-                    df_uploaded["Occupazione"]
+                    df_uploaded[occup_col]
                     .astype(str)
                     .str.lower()
                     .str.strip()
@@ -398,113 +414,247 @@ if uploaded_file is not None:
                     .dropna()
                     .astype(str)
                 )
+            else:
+                roles_for_analysis = df_uploaded[ruolo_col].dropna().astype(str)
 
-            if roles_for_analysis.empty:
+            if not roles_for_analysis.empty:
+                roles_for_analysis_norm = [normalize_role(r) for r in roles_for_analysis]
+                role_counts = Counter(roles_for_analysis_norm)
+                top_roles_for_pdf = role_counts.most_common(15)
+
+        # ----------------------------
+        # TABS
+        # ----------------------------
+        tab_overview, tab_grafici, tab_ruoli, tab_tabella, tab_report = st.tabs(
+            ["Overview", "Grafici", "Ruoli", "Tabella dettagliata", "Report"]
+        )
+
+        # ----------------------------
+        # TAB 1: OVERVIEW
+        # ----------------------------
+        with tab_overview:
+            st.subheader("Panoramica partecipanti")
+
+            kpi_row1 = st.columns(3)
+            kpi_row1[0].metric("Totale partecipanti", total_participants)
+            if unique_orgs is not None:
+                kpi_row1[1].metric("Organizzazioni uniche", unique_orgs)
+            if unique_sectors is not None:
+                kpi_row1[2].metric("Settori produttivi unici", unique_sectors)
+
+            kpi_row2 = st.columns(2)
+            if top_seniority_label is not None:
+                val = f"{top_seniority_label} ({top_seniority_pct:.1f}%)"
+                kpi_row2[0].metric("Seniority più diffusa", val)
+            if num_unique_roles is not None:
+                kpi_row2[1].metric("Ruoli diversi dichiarati", num_unique_roles)
+
+            st.markdown("---")
+            st.subheader("Executive summary")
+
+            summary_text = build_executive_summary(
+                df_uploaded,
+                kpis_for_pdf,
+                roles_for_analysis_norm,
+                sectors_col,
+                occup_col,
+                org_type_col,
+                seniority_col,
+            )
+            st.markdown(summary_text)
+
+            st.markdown("---")
+            st.subheader("Distribuzioni chiave")
+
+            # Alcuni grafici chiave: Occupazione, Settore produttivo, Seniority (se esistono)
+            key_categories = []
+            if "Occupazione" in df_uploaded.columns:
+                key_categories.append("Occupazione")
+            if sectors_col in df_uploaded.columns:
+                key_categories.append(sectors_col)
+            if seniority_col in df_uploaded.columns:
+                key_categories.append(seniority_col)
+
+            for idx, cat in enumerate(key_categories):
+                st.markdown(f"### {cat}")
+                plot_category_distribution(df_uploaded, cat, idx)
+
+        # ----------------------------
+        # TAB 2: GRAFICI (tutti)
+        # ----------------------------
+        with tab_grafici:
+            st.subheader("Analisi grafica completa")
+
+            for idx, category in enumerate(CATEGORIES_WITH_CHARTS):
+                st.markdown(f"### {category}")
+                plot_category_distribution(df_uploaded, category, idx)
+
+            if ORGANIZATION_COLUMN in df_uploaded.columns:
                 st.info(
-                    "Non ci sono ruoli disponibili (dopo aver escluso eventuali 'Studio')."
+                    "La colonna "
+                    f"'{ORGANIZATION_COLUMN}' "
+                    "non viene visualizzata come grafico perché contiene "
+                    "troppi valori diversi. "
+                    "Puoi comunque analizzarla nella tabella dettagliata."
+                )
+
+        # ----------------------------
+        # TAB 3: RUOLI
+        # ----------------------------
+        with tab_ruoli:
+            st.subheader("Analisi dei ruoli dichiarati (escludendo studenti)")
+
+            if ruolo_col is None:
+                st.info(
+                    "Nessuna colonna 'ruolo' trovata nel file (ricerca case-insensitive)."
                 )
             else:
-                # Normalizza ruoli simili
-                normalized_roles = [normalize_role(r) for r in roles_for_analysis]
-                role_counts = Counter(normalized_roles)
-                top_roles = role_counts.most_common(15)
-                top_roles_for_pdf = top_roles.copy()
-
-                st.markdown("**Top 15 ruoli professionali aggregati**")
-                df_top_roles = pd.DataFrame(
-                    top_roles, columns=["Ruolo aggregato", "Numero partecipanti"]
-                )
-                st.dataframe(df_top_roles, use_container_width=True)
-
-        # ----------------------------
-        # Tabella completa con filtri opzionali (una sola tabella)
-        # ----------------------------
-        st.subheader("Tabella completa dei partecipanti")
-
-        df_filtered = df_uploaded.copy()
-
-        with st.expander("Aggiungi filtri opzionali"):
-            for col in FILTER_COLUMNS:
-                if col not in df_uploaded.columns:
-                    continue
-
-                col_data = df_uploaded[col]
-                unique_vals = sorted(
-                    col_data.dropna().astype(str).unique().tolist()
-                )
-                if not unique_vals:
-                    continue
-
-                use_filter = st.checkbox(
-                    f"Attiva filtro per '{col}'",
-                    value=False,
-                )
-
-                if use_filter:
-                    selected_vals = st.multiselect(
-                        f"Seleziona i valori da mantenere per '{col}'",
-                        options=unique_vals,
-                        default=unique_vals,
+                if occup_col not in df_uploaded.columns:
+                    st.info(
+                        "Non è possibile escludere gli studenti perché manca la colonna 'Occupazione'. "
+                        "I ruoli mostrati includono tutti i partecipanti."
                     )
 
-                    if selected_vals and len(selected_vals) < len(unique_vals):
-                        df_filtered = df_filtered[
-                            df_filtered[col].astype(str).isin(selected_vals)
-                        ]
+                if not roles_for_analysis_norm:
+                    st.info(
+                        "Non ci sono ruoli disponibili (dopo aver escluso eventuali 'Studio')."
+                    )
+                else:
+                    role_counts = Counter(roles_for_analysis_norm)
+                    top_roles = role_counts.most_common(15)
 
-        # Nascondi automaticamente le colonne completamente vuote
-        cols_to_hide = []
-        for col in df_filtered.columns:
-            col_series = df_filtered[col]
+                    st.markdown("**Top 15 ruoli aggregati (esclusi studenti)**")
+                    df_top_roles = pd.DataFrame(
+                        top_roles, columns=["Ruolo aggregato", "Numero partecipanti"]
+                    )
+                    st.dataframe(df_top_roles, use_container_width=True)
 
-            if col_series.dtype == "object":
-                col_norm = col_series.replace(
-                    ["", " ", "  ", "None", "none", "NaN", "nan"],
-                    pd.NA,
-                )
+                    st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
+                    fig_wc, ax_wc = plt.subplots(figsize=(10, 6))
+                    ax_wc.set_title(
+                        "Ruoli dichiarati (aggregati, esclusi studenti)",
+                        fontsize=14
+                    )
+
+                    max_count = max(role_counts.values())
+                    for role, count in role_counts.most_common(30):
+                        x, y = np.random.rand(), np.random.rand()
+                        fontsize = 8 + (count / max_count) * 20
+                        ax_wc.text(
+                            x,
+                            y,
+                            role,
+                            fontsize=fontsize,
+                            alpha=0.7,
+                            color="#73b27d",
+                            transform=ax_wc.transAxes,
+                        )
+
+                    ax_wc.axis("off")
+                    st.pyplot(fig_wc)
+                    plt.close(fig_wc)
+
+        # ----------------------------
+        # TAB 4: TABELLA DETTAGLIATA + EXPORT CSV
+        # ----------------------------
+        with tab_tabella:
+            st.subheader("Tabella completa dei partecipanti")
+
+            df_filtered = df_uploaded.copy()
+
+            with st.expander("Aggiungi filtri opzionali"):
+                for col in FILTER_COLUMNS:
+                    if col not in df_uploaded.columns:
+                        continue
+
+                    col_data = df_uploaded[col]
+                    unique_vals = sorted(
+                        col_data.dropna().astype(str).unique().tolist()
+                    )
+                    if not unique_vals:
+                        continue
+
+                    use_filter = st.checkbox(
+                        f"Attiva filtro per '{col}'",
+                        value=False,
+                    )
+
+                    if use_filter:
+                        selected_vals = st.multiselect(
+                            f"Seleziona i valori da mantenere per '{col}'",
+                            options=unique_vals,
+                            default=unique_vals,
+                        )
+
+                        if selected_vals and len(selected_vals) < len(unique_vals):
+                            df_filtered = df_filtered[
+                                df_filtered[col].astype(str).isin(selected_vals)
+                            ]
+
+            # Nascondi colonne completamente vuote
+            cols_to_hide = []
+            for col in df_filtered.columns:
+                col_series = df_filtered[col]
+
+                if col_series.dtype == "object":
+                    col_norm = col_series.replace(
+                        ["", " ", "  ", "None", "none", "NaN", "nan"],
+                        pd.NA,
+                    )
+                else:
+                    col_norm = col_series
+
+                if col_norm.isna().all():
+                    cols_to_hide.append(col)
+
+            if cols_to_hide:
+                df_to_show = df_filtered.drop(columns=cols_to_hide)
             else:
-                col_norm = col_series
+                df_to_show = df_filtered
 
-            if col_norm.isna().all():
-                cols_to_hide.append(col)
+            st.dataframe(
+                df_to_show,
+                use_container_width=True,
+            )
 
-        if cols_to_hide:
-            df_to_show = df_filtered.drop(columns=cols_to_hide)
-        else:
-            df_to_show = df_filtered
-
-        st.dataframe(
-            df_to_show,
-            use_container_width=True,
-        )
+            # Export CSV dei dati filtrati
+            st.markdown("### Esporta dati filtrati")
+            csv_data = df_to_show.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="Scarica dati filtrati (CSV)",
+                data=csv_data,
+                file_name="partecipanti_filtrati.csv",
+                mime="text/csv",
+            )
 
         # ----------------------------
-        # Sezione download report PDF
+        # TAB 5: REPORT (PDF)
         # ----------------------------
-        st.subheader("Scarica il report in PDF")
+        with tab_report:
+            st.subheader("Report in PDF")
 
-        top_sectors_for_pdf = None
-        if sectors_present:
-            counts_sectors = df_uploaded[sectors_col].value_counts(dropna=True)
-            if not counts_sectors.empty:
-                top5_sectors = counts_sectors.head(10)
-                top_sectors_for_pdf = list(
-                    zip(top5_sectors.index.tolist(), top5_sectors.values.tolist())
-                )
+            top_sectors_for_pdf = None
+            if sectors_present:
+                counts_sectors = df_uploaded[sectors_col].value_counts(dropna=True)
+                if not counts_sectors.empty:
+                    top5_sectors = counts_sectors.head(10)
+                    top_sectors_for_pdf = list(
+                        zip(top5_sectors.index.tolist(), top5_sectors.values.tolist())
+                    )
 
-        pdf_bytes = generate_pdf_report(
-            df_uploaded,
-            kpis=kpis_for_pdf,
-            top_roles=top_roles_for_pdf,
-            top_sectors=top_sectors_for_pdf,
-        )
+            pdf_bytes = generate_pdf_report(
+                df_uploaded,
+                kpis=kpis_for_pdf,
+                top_roles=top_roles_for_pdf,
+                top_sectors=top_sectors_for_pdf,
+            )
 
-        st.download_button(
-            label="Scarica report PDF della sessione",
-            data=pdf_bytes,
-            file_name="report_partecipanti_sessione.pdf",
-            mime="application/pdf",
-        )
+            st.download_button(
+                label="Scarica report PDF della sessione",
+                data=pdf_bytes,
+                file_name="report_partecipanti_sessione.pdf",
+                mime="application/pdf",
+            )
 
     except Exception as e:
         st.error(
