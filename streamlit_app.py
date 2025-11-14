@@ -339,7 +339,7 @@ if uploaded_file is not None:
         # ----------------------------
         # Analisi dei ruoli (escludendo occupazione = Studio)
         # ----------------------------
-        st.subheader("Analisi dei ruoli dichiarati (escludendo studenti)")
+        st.subheader("Analisi dei ruoli professioanli dichiarati - aggregati")
 
         top_roles_for_pdf = None
         if ruolo_col is None:
@@ -377,7 +377,7 @@ if uploaded_file is not None:
                 top_roles = role_counts.most_common(15)
                 top_roles_for_pdf = top_roles.copy()
 
-                st.markdown("**Top 15 ruoli aggregati (esclusi studenti)**")
+                st.markdown("**Top 15 ruoli professionali aggregati**")
                 df_top_roles = pd.DataFrame(
                     top_roles, columns=["Ruolo aggregato", "Numero partecipanti"]
                 )
