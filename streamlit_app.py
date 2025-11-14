@@ -5,6 +5,29 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 from collections import Counter
 from fpdf import FPDF
+from PIL import Image
+
+# Banner brand Food Hub
+col_logo, col_title = st.columns([1, 5])
+
+with col_logo:
+    st.image(
+        "assets/logo_foodhub.png",
+        width=120
+    )
+
+with col_title:
+    st.markdown(
+        """
+        <h1 style="margin-bottom:0px; color:#73b27d;">
+            Dashboard personale – Sessione del Festival dell’Innovazione Agroalimentare
+        </h1>
+        <h4 style="margin-top:0px; color:#555;">
+            Analisi professionale dei partecipanti · Profilazione · Insights
+        </h4>
+        """,
+        unsafe_allow_html=True
+    )
 
 # ----------------------------
 # Configurazione pagina
