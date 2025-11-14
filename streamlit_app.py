@@ -160,8 +160,8 @@ def generate_pdf_report(df: pd.DataFrame,
     Crea un PDF semplice con:
     - titolo
     - KPI principali
-    - top ruoli normalizzati (escludendo 'Studio')
-    - top settori produttivi
+    - top ruoli
+    - top settori
     Restituisce i bytes del PDF.
     """
     pdf = FPDF()
@@ -200,8 +200,18 @@ def generate_pdf_report(df: pd.DataFrame,
             line = f"- {sector}: {count} partecipanti"
             pdf.cell(0, 7, line[:120], ln=True)
 
-    pdf_bytes = pdf.output(dest="S").encode("latin-1", "ignore")
+    # Output come bytes / bytearray (fpdf2)
+    pdf_raw = pdf.output(dest="S")
+
+    # fpdf2 può restituire str, bytes o bytearray a seconda della versione
+    if isinstance(pdf_raw, str):
+        pdf_bytes = pdf_raw.encode("latin-1", "ignore")
+    else:
+        # bytearray → lo converto in bytes
+        pdf_bytes = bytes(pdf_raw)
+
     return pdf_bytes
+
 
 
 # ----------------------------
