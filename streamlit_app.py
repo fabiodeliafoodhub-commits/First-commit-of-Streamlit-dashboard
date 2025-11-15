@@ -365,10 +365,11 @@ def build_executive_summary(
         vc_sec = df[sectors_col].value_counts(dropna=True)
         if not vc_sec.empty:
             main_sec = vc_sec.index[0]
-            pct_sec = vc_sec.iloc[0] / total * 100
+            valid_total = vc_sec.sum()  # <-- totale risposte valide
+            pct_sec = vc_sec.iloc[0] / valid_total * 100
             lines.append(
                 f"Il settore produttivo prevalente è **{main_sec}**, "
-                f"che pesa per circa il **{pct_sec:.1f}%** del totale."
+                f"che pesa per circa il **{pct_sec:.1f}%** delle risposte valide."
             )
 
     # Seniority: mettiamo in luce i profili con >10 anni
