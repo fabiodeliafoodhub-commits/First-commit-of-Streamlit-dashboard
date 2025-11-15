@@ -368,7 +368,7 @@ def build_executive_summary(
             valid_total = vc_sec.sum()  # <-- totale risposte valide
             pct_sec = vc_sec.iloc[0] / valid_total * 100
             lines.append(
-                f"Il settore produttivo prevalente è **{main_sec}**, "
+                f"Il settore produttivo prevalente delle aziende è **{main_sec}**, "
                 f"che pesa per circa il **{pct_sec:.1f}%** delle risposte valide."
             )
 
