@@ -527,15 +527,37 @@ if uploaded_file is not None:
             if unique_sectors is not None:
                 kpi_row1[2].metric("Settori produttivi unici", unique_sectors)
 
-            kpi_row2 = st.columns(2)
-            if top_seniority_label is not None:
-                val = f"{top_seniority_label} ({top_seniority_pct:.1f}%)"
-                kpi_row2[0].metric("Seniority più diffusa", val)
-            if num_unique_roles is not None:
-                kpi_row2[1].metric("Ruoli diversi dichiarati", num_unique_roles)
+        # --- KPI Seniority: percentuale >10 anni ---
+        seniority_col = "Seniority"
+        
+        perc_over_10 = None
+        if seniority_col in df_uploaded.columns:
+            seniority_series = df_uploaded[seniority_col].dropna().astype(str)
+        
+            # Vengono considerati "senior" tutti quelli che contengono "10" o valori superiori
+            # Esempi che vengono catturati:
+            # - "10-15"
+            # - "15+"
+            # - "20+"
+            senior_mask = seniority_series.str.contains("10", regex=False) | \
+                          seniority_series.str.contains("15", regex=False) | \
+                          seniority_series.str.contains("20", regex=False)
+        
+            if seniority_series.shape[0] > 0:
+                perc_over_10 = (senior_mask.sum() / seniority_series.shape[0]) * 100
+        
+        kpi_row2 = st.columns(2)
+        
+        if perc_over_10 is not None:
+            kpi_row2[0].metric(
+                "Senior (>10 anni di esperienza)",
+                f"{perc_over_10:.1f}%",
+                help="Percentuale dei partecipanti con più di 10 anni di esperienza professionale"
+            )
+        
+        if num_unique_roles is not None:
+            kpi_row2[1].metric("Ruoli diversi dichiarati", num_unique_roles)
 
-            st.markdown("---")
-            st.subheader("Executive summary")
 
             summary_text = build_executive_summary(
                 df_uploaded,
