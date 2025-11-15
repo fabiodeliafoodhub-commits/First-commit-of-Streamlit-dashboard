@@ -609,18 +609,7 @@ if uploaded_file is not None:
             st.markdown("---")
             st.subheader("Distribuzioni chiave")
 
-            # Alcuni grafici chiave: Occupazione, Settore produttivo, Seniority (se esistono)
-            key_categories = []
-            if "Occupazione" in df_uploaded.columns:
-                key_categories.append("Occupazione")
-            if sectors_col in df_uploaded.columns:
-                key_categories.append(sectors_col)
-            if seniority_col in df_uploaded.columns:
-                key_categories.append(seniority_col)
 
-            for idx, cat in enumerate(key_categories):
-                st.markdown(f"### {cat}")
-                plot_category_distribution(df_uploaded, cat, idx)
 
         # ----------------------------
         # TAB 2: GRAFICI (tutti)
