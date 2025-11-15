@@ -491,7 +491,7 @@ if uploaded_file is not None:
         # ----------------------------
         # TAB 1: OVERVIEW
         # ----------------------------
-        with tab_overview:
+with tab_overview:
     st.markdown(
         """
         <div style="
@@ -509,9 +509,6 @@ if uploaded_file is not None:
         """,
         unsafe_allow_html=True
     )
-
-    st.subheader("Panoramica partecipanti")
-    ...
 
         with tab_overview:
             st.subheader("Panoramica partecipanti")
