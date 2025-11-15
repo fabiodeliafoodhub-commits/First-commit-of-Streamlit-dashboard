@@ -7,6 +7,65 @@ from collections import Counter
 from fpdf import FPDF
 from PIL import Image  # per il logo
 
+# --- STILE CUSTOM PER RENDERE LA DASHBOARD PIÙ MODERNA ---
+st.markdown(
+    """
+    <style>
+        /* Sfondo più chiaro e pulito */
+        .main {
+            background-color: #f5f7fa;
+        }
+
+        /* Riduci un po' il padding laterale */
+        div.block-container {
+            padding-top: 1.5rem;
+            padding-bottom: 3rem;
+        }
+
+        /* Cards per le metriche */
+        .stMetric {
+            background: #ffffff;
+            padding: 1rem 1.2rem;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+        }
+
+        /* Tabs in stile "pill" moderno */
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 0.5rem;
+        }
+
+        .stTabs [data-baseweb="tab"] {
+            border-radius: 999px !important;
+            background-color: #e5e7eb;
+            padding: 0.35rem 0.9rem;
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .stTabs [aria-selected="true"] {
+            background-color: #73b27d !important;
+            color: #ffffff !important;
+        }
+
+        /* Tabelle con angoli arrotondati */
+        .stDataFrame {
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        }
+
+        /* Separatori più eleganti */
+        hr {
+            border: none;
+            border-top: 1px solid #e2e8f0;
+            margin: 1.5rem 0;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 # ----------------------------
 # Configurazione pagina
 # ----------------------------
