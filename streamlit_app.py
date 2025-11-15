@@ -491,24 +491,24 @@ if uploaded_file is not None:
         # ----------------------------
         # TAB 1: OVERVIEW
         # ----------------------------
-with tab_overview:
-    st.markdown(
+        with tab_overview:
+            st.markdown(
         """
-        <div style="
-            display:inline-block;
-            padding:4px 10px;
-            border-radius:999px;
-            background-color:#e3f2eb;
-            color:#14532d;
-            font-size:12px;
-            font-weight:600;
-            margin-bottom:8px;
-        ">
-            Festival dell’Innovazione Agroalimentare · Audience Insights
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+            <div style="
+                display:inline-block;
+                padding:4px 10px;
+                border-radius:999px;
+                background-color:#e3f2eb;
+                color:#14532d;
+                font-size:12px;
+                font-weight:600;
+                margin-bottom:8px;
+            ">
+                Festival dell’Innovazione Agroalimentare · Audience Insights
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
         with tab_overview:
             st.subheader("Panoramica partecipanti")
