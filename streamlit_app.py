@@ -735,7 +735,8 @@ if uploaded_file is not None:
                 file_name="partecipanti_filtrati.csv",
                 mime="text/csv",
             )
-                except Exception as e:
+
+    except Exception as e:
         st.error(
             f"Errore durante l'elaborazione del file: {e}. "
             "Assicurati che sia un file Excel valido e strutturato correttamente."
