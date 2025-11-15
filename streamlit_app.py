@@ -598,7 +598,7 @@ if uploaded_file is not None:
                     role_counts = Counter(roles_for_analysis_norm)
                     top_roles = role_counts.most_common(15)
 
-                    st.markdown("**Top 15 ruoli aggregati (esclusi studenti)**")
+                    st.markdown("**Top 15 ruoli aggregati**")
                     df_top_roles = pd.DataFrame(
                         top_roles, columns=["Ruolo aggregato", "Numero partecipanti"]
                     )
@@ -607,7 +607,7 @@ if uploaded_file is not None:
                     st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
                     fig_wc, ax_wc = plt.subplots(figsize=(10, 6))
                     ax_wc.set_title(
-                        "Ruoli dichiarati (aggregati, esclusi studenti)",
+                        "Ruoli dichiarati aggregati",
                         fontsize=14
                     )
 
