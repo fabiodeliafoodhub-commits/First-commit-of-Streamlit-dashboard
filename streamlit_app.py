@@ -652,34 +652,33 @@ if uploaded_file is not None:
 
                     st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
 					from wordcloud import WordCloud
-					# Colori brand
-					brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
-					
-					# Mappa ruolo → frequenza
-					role_freq = dict(role_counts)
-					
-					# Wordcloud professionale
-					wc = WordCloud(
-					    width=1600,
-					    height=900,
-					    background_color="white",
-					    colormap=None,  # Lo gestiamo noi
-					    color_func=lambda *args, **kwargs: np.random.choice(brand_colors),
-					    prefer_horizontal=1.0,
-					    min_font_size=14,
-					    max_font_size=85,
-					    random_state=42,
-					    collocations=False,
-					).generate_from_frequencies(role_freq)
-					
-					# Render
-					fig_wc = plt.figure(figsize=(10, 6))
-					plt.imshow(wc, interpolation="bilinear")
-					plt.axis("off")
-					
-					st.pyplot(fig_wc)
-					plt.close(fig_wc)
-
+                        # Colori brand
+                        brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
+                        
+                        # Mappa ruolo → frequenza
+                        role_freq = dict(role_counts)
+                        
+                        # Wordcloud professionale
+                        wc = WordCloud(
+                            width=1600,
+                            height=900,
+                            background_color="white",
+                            colormap=None,
+                            color_func=lambda *args, **kwargs: np.random.choice(brand_colors),
+                            prefer_horizontal=1.0,
+                            min_font_size=14,
+                            max_font_size=85,
+                            random_state=42,
+                            collocations=False,
+                        ).generate_from_frequencies(role_freq)
+                        
+                        # Render
+                        fig_wc = plt.figure(figsize=(10, 6))
+                        plt.imshow(wc, interpolation="bilinear")
+                        plt.axis("off")
+                        
+                        st.pyplot(fig_wc)
+                        plt.close(fig_wc)
 
         # ----------------------------
         # TAB 4: TABELLA DETTAGLIATA + EXPORT CSV
