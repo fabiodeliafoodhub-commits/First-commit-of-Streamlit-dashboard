@@ -651,9 +651,7 @@ if uploaded_file is not None:
                     st.dataframe(df_top_roles, use_container_width=True)
 
                     st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
-                    from wordcloud import WordCloud
 					from wordcloud import WordCloud
-
 					# Colori brand
 					brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
 					
