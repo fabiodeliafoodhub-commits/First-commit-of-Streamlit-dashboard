@@ -335,48 +335,86 @@ def build_executive_summary(
     seniority_col,
     perc_over_10=None,
 ):
-    """Genera un riassunto testuale 'executive summary' basato sui dati,
-    focalizzato su profili professionali di medio-alto livello.
+    """Genera un executive summary pulito ed esclude gli studenti da tutte
+    le metriche 'business-oriented' come area aziendale, settori, ruoli, seniority.
     """
+
     total = len(df)
+
+    # -----------------------------
+    # 1. Applichiamo il filtro studenti
+    # -----------------------------
+    if occup_col in df.columns:
+        df_business = df[df[occup_col].astype(str).str.strip().str.lower() != "studio"].copy()
+    else:
+        df_business = df.copy()
+
+    total_business = len(df_business)
+
     if total == 0:
         return "Non ci sono partecipanti registrati per questa sessione."
 
     lines = []
 
-    # Partecipanti totali
+    # Partecipanti totali (includiamo anche studenti)
     lines.append(
-        f"La sessione ha coinvolto **{total} partecipanti**."
+        f"La sessione ha coinvolto **{total} partecipanti** in totale."
     )
 
-    # Tipologia organizzazione
-    if org_type_col in df.columns:
-        vc_org = df[org_type_col].value_counts(dropna=True)
+    # Nota solo se una parte significativa è ‘studenti’
+    if total_business < total:
+        pct_students = (total - total_business) / total * 100
+        if pct_students >= 10:
+            lines.append(
+                f"Circa il **{pct_students:.1f}%** dei partecipanti proviene dall’ambito accademico."
+            )
+
+    # -----------------------------
+    # 2. Tipologia organizzazione (solo business)
+    # -----------------------------
+    if org_type_col in df_business.columns:
+        vc_org = df_business[org_type_col].value_counts(dropna=True)
         if not vc_org.empty:
             main_org = vc_org.index[0]
-            pct_org = vc_org.iloc[0] / total * 100
+            pct_org = vc_org.iloc[0] / vc_org.sum() * 100
             lines.append(
                 f"La tipologia di organizzazione più rappresentata è **{main_org}** "
-                f"({pct_org:.1f}% dei partecipanti)."
+                f"(**{pct_org:.1f}%** delle risposte valide)."
             )
 
-    # Settore produttivo
-    if sectors_col in df.columns:
-        vc_sec = df[sectors_col].value_counts(dropna=True)
+    # -----------------------------
+    # 3. Settore produttivo (solo business)
+    # -----------------------------
+    if sectors_col in df_business.columns:
+        vc_sec = df_business[sectors_col].value_counts(dropna=True)
         if not vc_sec.empty:
             main_sec = vc_sec.index[0]
-            valid_total = vc_sec.sum()  # <-- totale risposte valide
-            pct_sec = vc_sec.iloc[0] / valid_total * 100
+            pct_sec = vc_sec.iloc[0] / vc_sec.sum() * 100
             lines.append(
-                f"Il settore produttivo prevalente delle aziende è **{main_sec}**, "
-                f"che pesa per circa il **{pct_sec:.1f}%** delle risposte valide."
+                f"Il settore produttivo prevalente è **{main_sec}** "
+                f"(**{pct_sec:.1f}%** delle risposte valide)."
             )
 
-    # Seniority: mettiamo in luce i profili con >10 anni
-    # Se non ci hanno passato perc_over_10, lo ricalcoliamo qui
-    if perc_over_10 is None and seniority_col in df.columns:
+    # -----------------------------
+    # 4. Area aziendale (solo business)
+    # -----------------------------
+    area_col = "Area aziendale"
+    if area_col in df_business.columns:
+        vc_area = df_business[area_col].value_counts(dropna=True)
+        if not vc_area.empty:
+            main_area = vc_area.index[0]
+            pct_area = vc_area.iloc[0] / vc_area.sum() * 100
+            lines.append(
+                f"L’area aziendale più rappresentata è **{main_area}** "
+                f"(**{pct_area:.1f}%** delle risposte valide)."
+            )
+
+    # -----------------------------
+    # 5. Seniority (>10 anni) (solo business)
+    # -----------------------------
+    if perc_over_10 is None and seniority_col in df_business.columns:
         seniority_series = (
-            df[seniority_col]
+            df_business[seniority_col]
             .dropna()
             .astype(str)
             .str.strip()
@@ -389,30 +427,31 @@ def build_executive_summary(
         if perc_over_10 >= 40:
             lines.append(
                 f"Il pubblico è fortemente **senior**, con circa il **{perc_over_10:.1f}%** "
-                "dei partecipanti con oltre 10 anni di esperienza."
+                "dei partecipanti business con oltre 10 anni di esperienza."
             )
         elif perc_over_10 >= 20:
             lines.append(
-                f"È presente una componente rilevante di profili **mid-senior**, "
-                f"con circa il **{perc_over_10:.1f}%** dei partecipanti oltre i 10 anni di esperienza."
+                f"È presente una componente significativa di profili **mid-senior**, "
+                f"con circa il **{perc_over_10:.1f}%** oltre i 10 anni di esperienza."
             )
-        elif perc_over_10 > 0:
+        else:
             lines.append(
-                f"La quota di profili con oltre 10 anni di esperienza è pari a circa **{perc_over_10:.1f}%**."
+                f"La quota di profili con oltre 10 anni di esperienza è circa **{perc_over_10:.1f}%**."
             )
 
-    # Ruoli aggregati (R&D, Qualità, ecc.)
+    # -----------------------------
+    # 6. Ruoli aggregati (solo business)
+    # -----------------------------
     if roles_for_analysis_norm:
         role_counts = Counter(roles_for_analysis_norm)
         top_role, top_role_count = role_counts.most_common(1)[0]
-        pct_top_role = top_role_count / total * 100
+        pct_top_role = top_role_count / total_business * 100
         lines.append(
             f"A livello di profili professionali, il ruolo aggregato più rappresentato è "
-            f"**{top_role}** (circa {pct_top_role:.1f}% dei partecipanti)."
+            f"**{top_role}** (circa **{pct_top_role:.1f}%** del pubblico business)."
         )
-    # Nota: volutamente NON parliamo di studenti o profili poco strategici
-    return "\n\n".join(lines)
 
+    return "\n\n".join(lines)
 
 # ----------------------------
 # Upload file
