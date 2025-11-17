@@ -651,29 +651,41 @@ if uploaded_file is not None:
                     st.dataframe(df_top_roles, use_container_width=True)
 
                     st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
-                    fig_wc, ax_wc = plt.subplots(figsize=(10, 6))
-                    ax_wc.set_title(
-                        "Ruoli dichiarati aggregati",
-                        fontsize=14
-                    )
+                    from wordcloud import WordCloud
+					from wordcloud import WordCloud
 
-                    max_count = max(role_counts.values())
-                    for role, count in role_counts.most_common(30):
-                        x, y = np.random.rand(), np.random.rand()
-                        fontsize = 8 + (count / max_count) * 20
-                        ax_wc.text(
-                            x,
-                            y,
-                            role,
-                            fontsize=fontsize,
-                            alpha=0.7,
-                            color="#73b27d",
-                            transform=ax_wc.transAxes,
-                        )
+# Colori brand
+brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
 
-                    ax_wc.axis("off")
-                    st.pyplot(fig_wc)
-                    plt.close(fig_wc)
+# Mappa ruolo → frequenza
+role_freq = dict(role_counts)
+
+# Wordcloud professionale
+wc = WordCloud(
+    width=1600,
+    height=900,
+    background_color="white",
+    colormap=None,  # Lo gestiamo noi
+    color_func=lambda *args, **kwargs: np.random.choice(brand_colors),
+    prefer_horizontal=1.0,
+    min_font_size=14,
+    max_font_size=85,
+    random_state=42,
+    collocations=False,
+).generate_from_frequencies(role_freq)
+
+# Render
+fig_wc = plt.figure(figsize=(10, 6))
+plt.imshow(wc, interpolation="bilinear")
+plt.axis("off")
+
+st.pyplot(fig_wc)
+plt.close(fig_wc)
+
+		
+
+
+
 
         # ----------------------------
         # TAB 4: TABELLA DETTAGLIATA + EXPORT CSV
