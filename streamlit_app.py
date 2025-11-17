@@ -361,13 +361,6 @@ def build_executive_summary(
         f"La sessione ha coinvolto **{total} partecipanti** in totale."
     )
 
-    # Nota solo se una parte significativa è ‘studenti’
-    if total_business < total:
-        pct_students = (total - total_business) / total * 100
-        if pct_students >= 10:
-            lines.append(
-                f"Circa il **{pct_students:.1f}%** dei partecipanti proviene dall’ambito accademico."
-            )
 
     # -----------------------------
     # 2. Tipologia organizzazione (solo business)
