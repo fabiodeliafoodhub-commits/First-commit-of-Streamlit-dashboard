@@ -618,8 +618,7 @@ if uploaded_file is not None:
             for idx, category in enumerate(CATEGORIES_WITH_CHARTS):
                 st.markdown(f"### {category}")
                 plot_category_distribution(df_uploaded, category, idx)
-
-        # ----------------------------
+                        # ----------------------------
         # TAB 3: RUOLI
         # ----------------------------
         with tab_ruoli:
@@ -641,46 +640,51 @@ if uploaded_file is not None:
                         "Non ci sono ruoli disponibili (dopo aver escluso eventuali 'Studio')."
                     )
                 else:
+                    # Conteggio ruoli
                     role_counts = Counter(roles_for_analysis_norm)
-                    top_roles = role_counts.most_common(15)
 
                     st.markdown("**Top 15 ruoli aggregati**")
                     df_top_roles = pd.DataFrame(
-                        top_roles, columns=["Ruolo aggregato", "Numero partecipanti"]
+                        role_counts.most_common(15),
+                        columns=["Ruolo aggregato", "Numero partecipanti"]
                     )
                     st.dataframe(df_top_roles, use_container_width=True)
 
+                    # ------------------------
+                    # WORDCLOUD PROFESSIONALE
+                    # ------------------------
                     st.markdown("**Mappa visiva dei ruoli (dimensione ∝ frequenza)**")
-    from wordcloud import WordCloud
 
-    # Colori brand
-    brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
+                    from wordcloud import WordCloud
 
-    # Mappa ruolo → frequenza
-    role_freq = dict(role_counts)
+                    # Colori brand
+                    brand_colors = ["#73b27d", "#f1ad72", "#d31048"]
 
-    # Wordcloud professionale
-    wc = WordCloud(
-        width=1600,
-        height=900,
-        background_color="white",
-        colormap=None,
-        color_func=lambda *args, **kwargs: np.random.choice(brand_colors),
-        prefer_horizontal=1.0,
-        min_font_size=14,
-        max_font_size=85,
-        random_state=42,
-        collocations=False,
-    ).generate_from_frequencies(role_freq)
+                    # Frequenze
+                    role_freq = dict(role_counts)
 
-    # Render
-    fig_wc = plt.figure(figsize=(10, 6))
-    plt.imshow(wc, interpolation="bilinear")
-    plt.axis("off")
+                    # Wordcloud di qualità
+                    wc = WordCloud(
+                        width=1600,
+                        height=900,
+                        background_color="white",
+                        colormap=None,
+                        color_func=lambda *args, **kwargs: np.random.choice(brand_colors),
+                        prefer_horizontal=1.0,
+                        min_font_size=14,
+                        max_font_size=85,
+                        random_state=42,
+                        collocations=False,
+                    ).generate_from_frequencies(role_freq)
 
-    st.pyplot(fig_wc)
-    plt.close(fig_wc)
+                    # Render
+                    fig_wc = plt.figure(figsize=(10, 6))
+                    plt.imshow(wc, interpolation="bilinear")
+                    plt.axis("off")
 
+                    st.pyplot(fig_wc)
+                    plt.close(fig_wc)
+               
         # ----------------------------
         # TAB 4: TABELLA DETTAGLIATA + EXPORT CSV
         # ----------------------------
