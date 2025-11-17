@@ -401,16 +401,17 @@ def build_executive_summary(
                 f"La quota di profili con oltre 10 anni di esperienza è pari a circa **{perc_over_10:.1f}%**."
             )
 
-    # Ruoli aggregati (R&D, Qualità, ecc.)
-    if roles_for_analysis_norm:
-        role_counts = Counter(roles_for_analysis_norm)
-        top_role, top_role_count = role_counts.most_common(1)[0]
-        pct_top_role = top_role_count / total * 100
-        lines.append(
-            f"A livello di profili professionali, il ruolo aggregato più rappresentato è "
-            f"**{top_role}** (circa {pct_top_role:.1f}% dei partecipanti)."
-        )
-
+    # Area aziendale
+    if area_col in df.columns:
+        vc_area = df[area_col].value_counts(dropna=True)
+        if not vc_area.empty:
+            main_area = vc_area.index[0]
+            valid_total = vc_area.sum()
+            pct_area = vc_area.iloc[0] / valid_total * 100
+            lines.append(
+                f"L’area aziendale più rappresentata è **{main_area}**, "
+                f"che pesa per circa il **{pct_area:.1f}%** delle risposte valide."
+            )
     # Nota: volutamente NON parliamo di studenti o profili poco strategici
     return "\n\n".join(lines)
 
